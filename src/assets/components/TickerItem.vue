@@ -1,7 +1,9 @@
 <template>
-	<div class="ticker">
+	<div class="ticker" :ticker="modelValue">
 		<div class="ticker__wallet">{{ wallet }} - USD</div>
-		<div class="ticker__value">{{ walletValue }}</div>
+		<div class="ticker__value" v-if="walletValue">{{ walletValue }}</div>
+		<div class="ticker__value ticker__value--error" v-else-if="getErrors">Ошибка</div>
+		<Preloader class="ticker__preloader" v-else />
 		<Button
 			class="ticker__delete"
 			type="secondary"
@@ -15,17 +17,26 @@
 <script>
 export default {
 	props: {
-		wallet: {
-			type: String,
-			required: true,
-		},
-		walletValue: {
-			type: [Number, String],
+		modelValue: {
+			type: Object,
 			required: true,
 		},
 	},
+	computed: {
+		wallet() {
+			return this.modelValue.wallet;
+		},
+		walletValue() {
+			return this.modelValue.walletValue;
+		},
+		getErrors() {
+			return this.modelValue.error;
+		},
+	},
 	data() {
-		return {};
+		return {
+			ticker: {},
+		};
 	},
 };
 </script>
@@ -55,8 +66,19 @@ export default {
 	}
 
 	&__value {
+		text-align: center;
 		font-size: rem(36);
 
+		&--error {
+			color: color('red');
+		}
+
+		&:not(:last-child) {
+			margin-bottom: rem(36);
+		}
+	}
+
+	&__preloader {
 		&:not(:last-child) {
 			margin-bottom: rem(36);
 		}

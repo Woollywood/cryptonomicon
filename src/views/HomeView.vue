@@ -6,7 +6,7 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 	<div class="layout">
 		<div class="container">
 			<div class="layout__top">
-				<form @submit.prevent="addTicker">
+				<form class="layout__top-form" @submit.prevent="addTicker">
 					<label class="search-query">
 						<span class="search-query__label">Тикер</span>
 						<Input
@@ -15,7 +15,11 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 							type="text"
 							v-model="searchQuery" />
 					</label>
-					<Button class="layout__ticker-add" :prepend-icon="['fas', 'circle-plus']"> Добавить </Button>
+					<transition name="fade">
+						<Button class="layout__ticker-add" :prepend-icon="['fas', 'circle-plus']" v-if="searchQuery">
+							Добавить
+						</Button>
+					</transition>
 				</form>
 			</div>
 			<div class="layout__main" v-if="tickers.length">
@@ -23,12 +27,11 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 				<div class="layout__main-inner">
 					<TickerItem
 						class="layout__ticker"
-						v-for="ticker in tickers"
+						v-for="(ticker, index) in tickers"
 						:key="ticker.name"
 						:id="ticker.id"
 						:class="{ selected: sellectedTicker === ticker }"
-						:wallet="ticker.wallet"
-						:walletValue="ticker.walletValue"
+						v-model="tickers[index]"
 						@click="selectTicker(ticker)"
 						@delete="deleteTicker" />
 				</div>
@@ -76,11 +79,11 @@ export default {
 		},
 		selectTicker(ticker) {
 			this.sellectedTicker = ticker;
+			this.selectedTickerData = [];
 		},
 		addTicker(event) {
 			const newTicker = {
 				wallet: this.searchQuery,
-				walletValue: '-',
 			};
 
 			this.tickers.push(newTicker);
@@ -88,18 +91,23 @@ export default {
 
 			const thisArg = this;
 
-			setInterval(async () => {
-				const currentTicker = newTicker;
-				const f = await fetch(
-					`https://min-api.cryptocompare.com/data/price?fsym=${newTicker.wallet}&tsyms=USD&api_key=92b36e51888ed2958272f0074c6d7ccc6c05bc504185e7799b6aed3ea3db7b22`
-				);
-				const data = await f.json();
-				this.tickers.find((ticker) => ticker.wallet === newTicker.wallet).walletValue =
-					data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
+			const intervalTimer = setInterval(async () => {
+				try {
+					const currentTicker = newTicker;
+					const f = await fetch(
+						`https://min-api.cryptocompare.com/data/price?fsym=${newTicker.wallet}&tsyms=USD&api_key=92b36e51888ed2958272f0074c6d7ccc6c05bc504185e7799b6aed3ea3db7b22`
+					);
+					const data = await f.json();
+					this.tickers.find((ticker) => ticker.wallet === newTicker.wallet).walletValue =
+						data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
 
-				if (this.sellectedTicker?.wallet === currentTicker.wallet) {
-					console.log('push');
-					this.selectedTickerData.push(data.USD);
+					if (this.sellectedTicker?.wallet === currentTicker.wallet) {
+						this.selectedTickerData.push(data.USD);
+					}
+				} catch (err) {
+					console.log('error: ', err.message);
+					this.tickers.find((ticker) => ticker.wallet === newTicker.wallet).error = err;
+					clearInterval(intervalTimer);
 				}
 			}, 3000);
 		},
@@ -113,6 +121,12 @@ export default {
 	@include adaptiveValue('padding-bottom', 60, 36, 0, 1920, 568);
 
 	&__top {
+	}
+
+	&__top-form {
+		display: flex;
+		gap: rem(12);
+		align-items: center;
 	}
 
 	&__ticker-add {
@@ -213,5 +227,15 @@ export default {
 
 	&__input {
 	}
+}
+
+.fade-enter-active,
+.fade-leave-active {
+	transition: opacity 0.3s ease !important;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+	opacity: 0;
 }
 </style>
