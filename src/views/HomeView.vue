@@ -6,7 +6,7 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 	<div class="layout">
 		<div class="container">
 			<div class="layout__top">
-				<form class="layout__top-form" @submit.prevent="addTicker">
+				<form class="layout__top-form" @submit.prevent="addTickerThrottle">
 					<label class="search-query">
 						<span class="search-query__label">Тикер</span>
 						<Input
@@ -37,7 +37,6 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 				</div>
 				<hr class="layout__hr" />
 			</div>
-			{{ selectedTickerData }}
 			<div class="layout__info" v-if="sellectedTicker">
 				<div class="layout__info-top">
 					<h2 class="layout__info-title">{{ sellectedTicker.wallet }} - USD</h2>
@@ -73,14 +72,45 @@ export default {
 				this.sellectedTicker = null;
 			}
 		},
+
 		diagramClose() {
 			this.sellectedTicker = null;
 			this.selectedTickerData = [];
 		},
+
 		selectTicker(ticker) {
 			this.sellectedTicker = ticker;
 			this.selectedTickerData = [];
 		},
+
+		addTickerThrottleWrapper(func, ms) {
+			let isThrottled = false,
+				savedArgs,
+				savedThis;
+
+			function wrapper() {
+				if (isThrottled) {
+					savedArgs = arguments;
+					savedThis = this;
+					return;
+				}
+
+				func.apply(this, arguments);
+
+				isThrottled = true;
+
+				setTimeout(function () {
+					isThrottled = false;
+					if (savedArgs) {
+						wrapper.apply(savedThis, savedArgs);
+						savedArgs = savedThis = null;
+					}
+				}, ms);
+			}
+
+			return wrapper;
+		},
+
 		addTicker(event) {
 			const newTicker = {
 				wallet: this.searchQuery,
@@ -92,6 +122,11 @@ export default {
 			const thisArg = this;
 
 			const intervalTimer = setInterval(async () => {
+				if (!this.tickers.find((ticker) => ticker.wallet === newTicker.wallet)) {
+					clearInterval(intervalTimer);
+					return;
+				}
+
 				try {
 					const currentTicker = newTicker;
 					const f = await fetch(
@@ -111,6 +146,9 @@ export default {
 				}
 			}, 3000);
 		},
+	},
+	created() {
+		this.addTickerThrottle = this.addTickerThrottleWrapper(this.addTicker, 1000);
 	},
 };
 </script>
