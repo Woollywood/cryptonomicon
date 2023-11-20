@@ -44,13 +44,13 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 								<Button
 									class="layout__pagination-button"
 									:disabled="page === 1"
-									@click="page = page - 1"
+									@click="prevPage"
 									>Назад</Button
 								>
 								<Button
 									class="layout__pagination-button"
 									:disabled="!hasNextPage"
-									@click="page = page + 1"
+									@click="nextPage"
 									>Вперед</Button
 								>
 							</div>
@@ -72,7 +72,6 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 							@delete="deleteTicker" />
 					</div>
 					<hr class="layout__hr" />
-					{{ filteredTickers }}
 				</div>
 			</transition>
 			<transition name="fade">
@@ -229,6 +228,16 @@ export default {
 
 			return filteredTickers.slice(start, end);
 		},
+
+		prevPage() {
+			this.page--;
+			this.diagramClose();
+		},
+
+		nextPage() {
+			this.page++;
+			this.diagramClose();
+		}
 	},
 	computed: {
 		searchQueryClue() {
