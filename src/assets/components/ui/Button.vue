@@ -56,8 +56,14 @@ export default {
 .button-primary {
 	background-color: color('grey', 0.8);
 
-	&:hover {
-		background-color: color('grey');
+	&:not(&:disabled) {
+		&:hover {
+			background-color: color('grey');
+		}
+	}
+
+	&:disabled {
+		background-color: color('grey', 0.4);
 	}
 }
 

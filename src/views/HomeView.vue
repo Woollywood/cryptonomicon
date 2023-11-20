@@ -38,19 +38,41 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 			</div>
 			<transition name="fade">
 				<div class="layout__main" v-if="tickers.length">
+					<div class="layout__main-header">
+						<div class="layout__pagination">
+							<div class="layout__pagination-buttons">
+								<Button
+									class="layout__pagination-button"
+									:disabled="page === 1"
+									@click="page = page - 1"
+									>Назад</Button
+								>
+								<Button
+									class="layout__pagination-button"
+									:disabled="!hasNextPage"
+									@click="page = page + 1"
+									>Вперед</Button
+								>
+							</div>
+						</div>
+						<div class="layout__filter">
+							<Input placeholder="Фильтр" type="text" v-model="filter" />
+						</div>
+					</div>
 					<hr class="layout__hr" />
 					<div class="layout__main-inner">
 						<TickerItem
 							class="layout__ticker"
-							v-for="(ticker, index) in tickers"
+							v-for="(ticker, index) in filteredTickers()"
 							:key="ticker.name"
 							:id="ticker.id"
 							:class="{ selected: sellectedTicker === ticker }"
-							v-model="tickers[index]"
+							v-model="filteredTickers()[index]"
 							@click="selectTicker(ticker)"
 							@delete="deleteTicker" />
 					</div>
 					<hr class="layout__hr" />
+					{{ filteredTickers }}
 				</div>
 			</transition>
 			<transition name="fade">
@@ -83,11 +105,16 @@ export default {
 			selectedTickerData: [],
 
 			allTickers: [],
+
+			page: 1,
+			filter: '',
+			hasNextPage: false,
 		};
 	},
 	methods: {
 		deleteTicker(wallet) {
 			this.tickers = this.tickers.filter((ticker) => ticker.wallet !== wallet);
+			localStorage.setItem('cryptonomicon-list', JSON.stringify(this.tickers));
 
 			if (this.sellectedTicker?.wallet === wallet) {
 				this.sellectedTicker = null;
@@ -153,6 +180,7 @@ export default {
 			};
 
 			this.tickers.push(newTicker);
+			this.filter = '';
 			localStorage.setItem('cryptonomicon-list', JSON.stringify(this.tickers));
 
 			this.subscribeToUpdates(newTicker);
@@ -190,6 +218,17 @@ export default {
 			const data = await f.json();
 			this.allTickers = Object.values(data.Data).map((value) => value.Symbol);
 		},
+
+		filteredTickers() {
+			const start = (this.page - 1) * 8;
+			const end = this.page * 8;
+			const filteredTickers = this.tickers.filter((ticker) =>
+				ticker.wallet.toLowerCase().includes(this.filter.toLowerCase())
+			);
+			this.hasNextPage = filteredTickers.length > end;
+
+			return filteredTickers.slice(start, end);
+		},
 	},
 	computed: {
 		searchQueryClue() {
@@ -201,6 +240,16 @@ export default {
 		},
 	},
 	created() {
+		const windowData = Object.fromEntries(new URL(window.location).searchParams.entries());
+
+		if (windowData.filter) {
+			this.filter = windowData.filter;
+		}
+
+		if (windowData.page) {
+			this.page = windowData.page;
+		}
+
 		this.addTickerThrottle = this.addTickerThrottleWrapper(this.addTicker, 1000);
 		this.fetchAllTickers();
 
@@ -209,6 +258,25 @@ export default {
 			this.tickers = JSON.parse(tickersData);
 			this.tickers.forEach((ticker) => this.subscribeToUpdates(ticker));
 		}
+	},
+	watch: {
+		filter() {
+			this.page = 1;
+
+			window.history.pushState(
+				null,
+				document.title,
+				`${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+			);
+		},
+
+		page() {
+			window.history.pushState(
+				null,
+				document.title,
+				`${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+			);
+		},
 	},
 };
 </script>
@@ -219,6 +287,9 @@ export default {
 	@include adaptiveValue('padding-bottom', 60, 36, 0, 1920, 568);
 
 	&__top {
+		&:not(:last-child) {
+			margin-bottom: rem(32);
+		}
 	}
 
 	&__top-form {
@@ -300,6 +371,36 @@ export default {
 	&__diagram-component {
 		width: 100%;
 		height: 100%;
+	}
+
+	&__main-header {
+		display: flex;
+		gap: rem(36);
+		align-items: center;
+
+		&:not(:last-child) {
+			margin-bottom: rem(32);
+		}
+	}
+
+	&__pagination {
+		display: flex;
+		align-items: center;
+		gap: rem(56);
+	}
+
+	&__pagination-description {
+	}
+
+	&__pagination-buttons {
+		display: flex;
+		align-items: center;
+		gap: rem(16);
+	}
+
+	&__pagination-button {
+		flex: 0 0 rem(160);
+		width: rem(160);
 	}
 }
 .search-query {
