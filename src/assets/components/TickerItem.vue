@@ -44,9 +44,9 @@ export default {
 <style lang="scss" scoped>
 .ticker {
 	cursor: pointer;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
+	display: grid;
+	grid-template-rows: auto 1fr auto;
+	justify-content: center;
 	border-radius: rem(16);
 	transition: background-color 0.3s ease;
 	padding: rem(12) rem(16);
@@ -56,6 +56,7 @@ export default {
 	}
 
 	&__wallet {
+		text-align: center;
 		text-transform: uppercase;
 		font-size: rem(14);
 		color: color('grey', 0.8);
@@ -79,6 +80,8 @@ export default {
 	}
 
 	&__preloader {
+		margin: 0 auto;
+
 		&:not(:last-child) {
 			margin-bottom: rem(36);
 		}

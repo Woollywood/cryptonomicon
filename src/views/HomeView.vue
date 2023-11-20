@@ -16,13 +16,18 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 								type="text"
 								v-model="searchQuery"
 								@input="searchQueryError = ''" />
-							<span class="search-query-error" v-if="searchQueryError.length">{{ searchQueryError }}</span>
+
+							<span class="search-query-error" v-if="searchQueryError.length">{{
+								searchQueryError
+							}}</span>
 						</label>
-						<div class="search-query-clue" v-if="searchQueryClue.length">
-							<div class="clue-item" v-for="ticker in searchQueryClue" @click="addTickerClue(ticker)">
-								{{ ticker }}
+						<transition name="fade">
+							<div class="search-query-clue" v-if="searchQueryClue.length">
+								<div class="clue-item" v-for="ticker in searchQueryClue" @click="addTickerClue(ticker)">
+									{{ ticker }}
+								</div>
 							</div>
-						</div>
+						</transition>
 					</div>
 					<transition name="fade">
 						<Button class="layout__ticker-add" :prepend-icon="['fas', 'circle-plus']" v-if="searchQuery">
@@ -31,34 +36,38 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 					</transition>
 				</form>
 			</div>
-			<div class="layout__main" v-if="tickers.length">
-				<hr class="layout__hr" />
-				<div class="layout__main-inner">
-					<TickerItem
-						class="layout__ticker"
-						v-for="(ticker, index) in tickers"
-						:key="ticker.name"
-						:id="ticker.id"
-						:class="{ selected: sellectedTicker === ticker }"
-						v-model="tickers[index]"
-						@click="selectTicker(ticker)"
-						@delete="deleteTicker" />
+			<transition name="fade">
+				<div class="layout__main" v-if="tickers.length">
+					<hr class="layout__hr" />
+					<div class="layout__main-inner">
+						<TickerItem
+							class="layout__ticker"
+							v-for="(ticker, index) in tickers"
+							:key="ticker.name"
+							:id="ticker.id"
+							:class="{ selected: sellectedTicker === ticker }"
+							v-model="tickers[index]"
+							@click="selectTicker(ticker)"
+							@delete="deleteTicker" />
+					</div>
+					<hr class="layout__hr" />
 				</div>
-				<hr class="layout__hr" />
-			</div>
-			<div class="layout__info" v-if="sellectedTicker">
-				<div class="layout__info-top">
-					<h2 class="layout__info-title">{{ sellectedTicker.wallet }} - USD</h2>
-					<Button
-						class="layout__info-close"
-						type="secondary"
-						:prepend-icon="['fas', 'xmark']"
-						@click="diagramClose"></Button>
+			</transition>
+			<transition name="fade">
+				<div class="layout__info" v-if="sellectedTicker">
+					<div class="layout__info-top">
+						<h2 class="layout__info-title">{{ sellectedTicker.wallet }} - USD</h2>
+						<Button
+							class="layout__info-close"
+							type="secondary"
+							:prepend-icon="['fas', 'xmark']"
+							@click="diagramClose"></Button>
+					</div>
+					<div class="layout__diagram">
+						<ChartComponent class="layout__diagram-component" :dataValue="selectedTickerData" />
+					</div>
 				</div>
-				<div class="layout__diagram">
-					<ChartComponent class="layout__diagram-component" :dataValue="selectedTickerData" />
-				</div>
-			</div>
+			</transition>
 		</div>
 	</div>
 </template>
@@ -144,7 +153,12 @@ export default {
 			};
 
 			this.tickers.push(newTicker);
+			localStorage.setItem('cryptonomicon-list', JSON.stringify(this.tickers));
 
+			this.subscribeToUpdates(newTicker);
+		},
+
+		subscribeToUpdates(newTicker) {
 			const intervalTimer = setInterval(async () => {
 				if (!this.tickers.find((ticker) => ticker.wallet === newTicker.wallet)) {
 					clearInterval(intervalTimer);
@@ -168,7 +182,7 @@ export default {
 					this.tickers.find((ticker) => ticker.wallet === newTicker.wallet).error = err;
 					clearInterval(intervalTimer);
 				}
-			}, 3000);
+			}, 5000);
 		},
 
 		async fetchAllTickers() {
@@ -189,6 +203,12 @@ export default {
 	created() {
 		this.addTickerThrottle = this.addTickerThrottleWrapper(this.addTicker, 1000);
 		this.fetchAllTickers();
+
+		const tickersData = localStorage.getItem('cryptonomicon-list');
+		if (tickersData) {
+			this.tickers = JSON.parse(tickersData);
+			this.tickers.forEach((ticker) => this.subscribeToUpdates(ticker));
+		}
 	},
 };
 </script>
