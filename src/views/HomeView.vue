@@ -6,15 +6,24 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 	<div class="layout">
 		<div class="container">
 			<div class="layout__top">
-				<form class="layout__top-form" @submit.prevent="addTickerThrottle">
-					<label class="search-query">
-						<span class="search-query__label">Тикер</span>
-						<Input
-							class="search-query__input"
-							placeholder="Например DOGE"
-							type="text"
-							v-model="searchQuery" />
-					</label>
+				<form class="layout__top-form" @submit.prevent="addTickerSubmit(searchQuery)">
+					<div class="search-query-wrapper">
+						<label class="search-query">
+							<span class="search-query__label">Тикер</span>
+							<Input
+								class="search-query__input"
+								placeholder="Например DOGE"
+								type="text"
+								v-model="searchQuery"
+								@input="searchQueryError = ''" />
+							<span class="search-query-error" v-if="searchQueryError.length">{{ searchQueryError }}</span>
+						</label>
+						<div class="search-query-clue" v-if="searchQueryClue.length">
+							<div class="clue-item" v-for="ticker in searchQueryClue" @click="addTickerClue(ticker)">
+								{{ ticker }}
+							</div>
+						</div>
+					</div>
 					<transition name="fade">
 						<Button class="layout__ticker-add" :prepend-icon="['fas', 'circle-plus']" v-if="searchQuery">
 							Добавить
@@ -59,9 +68,12 @@ export default {
 	data() {
 		return {
 			searchQuery: '',
+			searchQueryError: '',
 			tickers: [],
 			sellectedTicker: null,
 			selectedTickerData: [],
+
+			allTickers: [],
 		};
 	},
 	methods: {
@@ -111,15 +123,27 @@ export default {
 			return wrapper;
 		},
 
-		addTicker(event) {
+		addTickerSubmit(tickerName) {
+			this.addTickerThrottle(tickerName);
+			this.searchQuery = '';
+		},
+
+		addTickerClue(tickerName) {
+			this.addTickerThrottle(tickerName);
+			this.searchQuery = '';
+		},
+
+		addTicker(tickerName) {
+			if (this.tickers.find((ticker) => ticker.wallet === tickerName)) {
+				this.searchQueryError = 'Такой тикер уже существует';
+				return;
+			}
+
 			const newTicker = {
-				wallet: this.searchQuery,
+				wallet: tickerName,
 			};
 
 			this.tickers.push(newTicker);
-			this.searchQuery = '';
-
-			const thisArg = this;
 
 			const intervalTimer = setInterval(async () => {
 				if (!this.tickers.find((ticker) => ticker.wallet === newTicker.wallet)) {
@@ -146,9 +170,25 @@ export default {
 				}
 			}, 3000);
 		},
+
+		async fetchAllTickers() {
+			const f = await fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true');
+			const data = await f.json();
+			this.allTickers = Object.values(data.Data).map((value) => value.Symbol);
+		},
+	},
+	computed: {
+		searchQueryClue() {
+			return this.searchQuery.length
+				? this.allTickers
+						.filter((ticker) => ticker.toLowerCase().includes(this.searchQuery.toLowerCase()))
+						.slice(0, 4)
+				: [];
+		},
 	},
 	created() {
 		this.addTickerThrottle = this.addTickerThrottleWrapper(this.addTicker, 1000);
+		this.fetchAllTickers();
 	},
 };
 </script>
@@ -255,7 +295,7 @@ export default {
 	}
 
 	&:not(:last-child) {
-		margin-bottom: rem(12);
+		margin-bottom: rem(8);
 	}
 
 	&__label {
@@ -265,6 +305,40 @@ export default {
 
 	&__input {
 	}
+}
+
+.search-query-wrapper {
+	display: flex;
+	flex-direction: column;
+}
+
+.search-query-clue {
+	display: flex;
+	justify-content: space-between;
+	gap: rem(4);
+	align-items: center;
+
+	padding-bottom: rem(8);
+	border-bottom: 1px solid color('grey', 0.8);
+}
+
+.search-query-error {
+	color: color('red');
+	font-size: rem(12);
+}
+
+.clue-item {
+	cursor: pointer;
+	flex: 1 1 auto;
+	color: color('black', 0.8);
+	font-size: rem(12);
+	padding: rem(4) rem(6);
+	background-color: color('grey', 0.8);
+	border-radius: rem(12);
+
+	display: flex;
+	justify-content: center;
+	align-items: center;
 }
 
 .fade-enter-active,
