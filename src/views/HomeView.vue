@@ -41,21 +41,15 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 					<div class="layout__main-header">
 						<div class="layout__pagination">
 							<div class="layout__pagination-buttons">
-								<Button
-									class="layout__pagination-button"
-									:disabled="page === 1"
-									@click="prevPage"
+								<Button class="layout__pagination-button" :disabled="page == 1" @click="prevPage"
 									>Назад</Button
 								>
-								<Button
-									class="layout__pagination-button"
-									:disabled="!hasNextPage"
-									@click="nextPage"
+								<Button class="layout__pagination-button" :disabled="!hasNextPage" @click="nextPage"
 									>Вперед</Button
 								>
 							</div>
 						</div>
-						<div class="layout__filter">
+						<div class="layout__filter" v-tippy="'Фильтр по названию тикера'">
 							<Input placeholder="Фильтр" type="text" v-model="filter" />
 						</div>
 					</div>
@@ -63,13 +57,14 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 					<div class="layout__main-inner">
 						<TickerItem
 							class="layout__ticker"
-							v-for="(ticker, index) in filteredTickers()"
+							v-for="(ticker, index) in paginatedTickers"
 							:key="ticker.name"
 							:id="ticker.id"
 							:class="{ selected: sellectedTicker === ticker }"
-							v-model="filteredTickers()[index]"
+							v-model="paginatedTickers[index]"
 							@click="selectTicker(ticker)"
 							@delete="deleteTicker" />
+						<h3 class="layout__main-empty" v-if="!paginatedTickers.length">Тикеры не найдены</h3>
 					</div>
 					<hr class="layout__hr" />
 				</div>
@@ -94,6 +89,8 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 </template>
 
 <script>
+import { subscribeToTicker, unsubscribeFromTicker } from '@/api';
+
 export default {
 	data() {
 		return {
@@ -107,13 +104,12 @@ export default {
 
 			page: 1,
 			filter: '',
-			hasNextPage: false,
 		};
 	},
 	methods: {
 		deleteTicker(wallet) {
+			unsubscribeFromTicker(this.tickers.find((ticker) => ticker.wallet === wallet));
 			this.tickers = this.tickers.filter((ticker) => ticker.wallet !== wallet);
-			localStorage.setItem('cryptonomicon-list', JSON.stringify(this.tickers));
 
 			if (this.sellectedTicker?.wallet === wallet) {
 				this.sellectedTicker = null;
@@ -122,12 +118,10 @@ export default {
 
 		diagramClose() {
 			this.sellectedTicker = null;
-			this.selectedTickerData = [];
 		},
 
 		selectTicker(ticker) {
 			this.sellectedTicker = ticker;
-			this.selectedTickerData = [];
 		},
 
 		addTickerThrottleWrapper(func, ms) {
@@ -159,6 +153,10 @@ export default {
 		},
 
 		addTickerSubmit(tickerName) {
+			if (!tickerName.length) {
+				return;
+			}
+
 			this.addTickerThrottle(tickerName);
 			this.searchQuery = '';
 		},
@@ -178,55 +176,38 @@ export default {
 				wallet: tickerName,
 			};
 
-			this.tickers.push(newTicker);
+			this.tickers = [...this.tickers, newTicker];
 			this.filter = '';
-			localStorage.setItem('cryptonomicon-list', JSON.stringify(this.tickers));
 
-			this.subscribeToUpdates(newTicker);
+			subscribeToTicker(newTicker.wallet, (price) => {
+				this.updatedTicker(newTicker.wallet, price);
+			});
 		},
 
-		subscribeToUpdates(newTicker) {
-			const intervalTimer = setInterval(async () => {
-				if (!this.tickers.find((ticker) => ticker.wallet === newTicker.wallet)) {
-					clearInterval(intervalTimer);
-					return;
-				}
+		updatedTicker(tickerName, price) {
+			this.tickers.find((ticker) => ticker.wallet === tickerName).walletValue = price;
+		},
 
-				try {
-					const currentTicker = newTicker;
-					const f = await fetch(
-						`https://min-api.cryptocompare.com/data/price?fsym=${newTicker.wallet}&tsyms=USD&api_key=92b36e51888ed2958272f0074c6d7ccc6c05bc504185e7799b6aed3ea3db7b22`
-					);
-					const data = await f.json();
-					this.tickers.find((ticker) => ticker.wallet === newTicker.wallet).walletValue =
-						data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-
-					if (this.sellectedTicker?.wallet === currentTicker.wallet) {
-						this.selectedTickerData.push(data.USD);
-					}
-				} catch (err) {
-					console.log('error: ', err.message);
-					this.tickers.find((ticker) => ticker.wallet === newTicker.wallet).error = err;
-					clearInterval(intervalTimer);
-				}
-			}, 5000);
+		async updateTickers() {
+			// if (!this.tickers.length) {
+			// 	return;
+			// }
+			// const exchangeData = await loadTickers(this.tickers.map((ticker) => ticker.wallet));
+			// this.tickers.forEach((ticker, index) => {
+			// 	const price = exchangeData[ticker.wallet.toUpperCase()];
+			// 	this.tickers[index].walletValue = price ?? '-';
+			// });
+			// this.tickers.find((ticker) => ticker.wallet === newTicker.wallet).walletValue =
+			// 	exchangeData.USD > 1 ? exchangeData.USD.toFixed(2) : exchangeData.USD.toPrecision(2);
+			// if (this.sellectedTicker?.wallet === newTicker.wallet) {
+			// 	this.selectedTickerData.push(data.USD);
+			// }
 		},
 
 		async fetchAllTickers() {
 			const f = await fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true');
 			const data = await f.json();
 			this.allTickers = Object.values(data.Data).map((value) => value.Symbol);
-		},
-
-		filteredTickers() {
-			const start = (this.page - 1) * 8;
-			const end = this.page * 8;
-			const filteredTickers = this.tickers.filter((ticker) =>
-				ticker.wallet.toLowerCase().includes(this.filter.toLowerCase())
-			);
-			this.hasNextPage = filteredTickers.length > end;
-
-			return filteredTickers.slice(start, end);
 		},
 
 		prevPage() {
@@ -237,9 +218,29 @@ export default {
 		nextPage() {
 			this.page++;
 			this.diagramClose();
-		}
+		},
 	},
 	computed: {
+		startIndex() {
+			return (this.page - 1) * 8;
+		},
+
+		endIndex() {
+			return this.page * 8;
+		},
+
+		filteredTickers() {
+			return this.tickers.filter((ticker) => ticker.wallet.toLowerCase().includes(this.filter.toLowerCase()));
+		},
+
+		paginatedTickers() {
+			return this.filteredTickers.slice(this.startIndex, this.endIndex);
+		},
+
+		hasNextPage() {
+			return this.filteredTickers.length > this.endIndex;
+		},
+
 		searchQueryClue() {
 			return this.searchQuery.length
 				? this.allTickers
@@ -247,44 +248,65 @@ export default {
 						.slice(0, 4)
 				: [];
 		},
+
+		pageStateOptions() {
+			return {
+				filter: this.filter,
+				page: this.page,
+			};
+		},
 	},
 	created() {
 		const windowData = Object.fromEntries(new URL(window.location).searchParams.entries());
+		const VALID_KEYS = ['filter', 'page'];
 
-		if (windowData.filter) {
-			this.filter = windowData.filter;
-		}
-
-		if (windowData.page) {
-			this.page = windowData.page;
-		}
+		VALID_KEYS.forEach((key) => {
+			if (windowData[key]) {
+				this[key] = windowData[key];
+			}
+		});
 
 		this.addTickerThrottle = this.addTickerThrottleWrapper(this.addTicker, 1000);
 		this.fetchAllTickers();
 
 		const tickersData = localStorage.getItem('cryptonomicon-list');
+
 		if (tickersData) {
 			this.tickers = JSON.parse(tickersData);
-			this.tickers.forEach((ticker) => this.subscribeToUpdates(ticker));
+			this.tickers.forEach((ticker) => {
+				subscribeToTicker(ticker.wallet, (price) => {
+					this.updatedTicker(ticker.wallet, price);
+				});
+			});
 		}
+
+		setInterval(this.updateTickers, 5000);
 	},
 	watch: {
+		sellectedTicker() {
+			this.selectedTickerData = [];
+		},
+
 		filter() {
 			this.page = 1;
+		},
 
+		pageStateOptions(newValue) {
 			window.history.pushState(
 				null,
 				document.title,
-				`${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+				`${window.location.pathname}?filter=${newValue.filter}&page=${newValue.page}`
 			);
 		},
 
-		page() {
-			window.history.pushState(
-				null,
-				document.title,
-				`${window.location.pathname}?filter=${this.filter}&page=${this.page}`
-			);
+		paginatedTickers(value) {
+			if (this.paginatedTickers.length === 0 && this.page > 1) {
+				this.page--;
+			}
+		},
+
+		tickers() {
+			localStorage.setItem('cryptonomicon-list', JSON.stringify(this.tickers));
 		},
 	},
 };
@@ -332,6 +354,10 @@ export default {
 		@media (max-width: $mobileSmall) {
 			grid-template-columns: 1fr;
 		}
+	}
+
+	&__main-empty {
+		font-size: rem(22);
 	}
 
 	&__ticker {

@@ -1,8 +1,7 @@
 <template>
 	<div class="ticker" :ticker="modelValue">
 		<div class="ticker__wallet">{{ wallet }} - USD</div>
-		<div class="ticker__value" v-if="walletValue">{{ walletValue }}</div>
-		<div class="ticker__value ticker__value--error" v-else-if="getErrors">Ошибка</div>
+		<div class="ticker__value" v-if="walletValue">{{ formatPrice(walletValue) }}</div>
 		<Preloader class="ticker__preloader" v-else />
 		<Button
 			class="ticker__delete"
@@ -29,14 +28,22 @@ export default {
 		walletValue() {
 			return this.modelValue.walletValue;
 		},
-		getErrors() {
-			return this.modelValue.error;
-		},
 	},
 	data() {
 		return {
 			ticker: {},
 		};
+	},
+	methods: {
+		formatPrice(price) {
+			if (price === '-') {
+				return price;
+			} else {
+				price = Number(price);
+			}
+
+			return price > 1 ? price.toFixed(2) : price.toPrecision(2);
+		},
 	},
 };
 </script>
