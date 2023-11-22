@@ -1,22 +1,39 @@
 <template>
 	<div class="chart-component">
-		<Bar :data="chartValue" :options="chartOptions" ref="bar" />
+		<Line :data="chartValue" :options="chartOptions" />
 	</div>
 </template>
 
 <script>
-import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale } from 'chart.js';
-import { Bar } from 'vue-chartjs';
+import {
+	Chart as ChartJS,
+	CategoryScale,
+	LinearScale,
+	PointElement,
+	LineElement,
+	Title,
+	Tooltip,
+	Legend,
+} from 'chart.js';
+import { Line } from 'vue-chartjs';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 export default {
 	components: {
-		Bar,
+		Line,
 	},
 	name: 'ChartComponent',
 	props: {
 		dataValue: {
+			type: Array,
+			required: true,
+		},
+		wallet: {
+			type: String,
+			required: true,
+		},
+		labels: {
 			type: Array,
 			required: true,
 		},
@@ -25,14 +42,24 @@ export default {
 		return {
 			chartOptions: {
 				responsive: true,
+				scales: {
+					y: {
+						beginAtZero: false,
+					},
+				},
 			},
 		};
 	},
 	computed: {
 		chartValue() {
 			return {
-				labels: ['January', 'February', 'March'],
-				datasets: [{ data: this.dataValue.map((value) => Number(value)) }],
+				labels: this.labels,
+				datasets: [
+					{
+						label: this.wallet,
+						data: this.dataValue.map((value) => Number(value)),
+					},
+				],
 			};
 		},
 	},

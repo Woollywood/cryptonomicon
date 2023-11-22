@@ -1,7 +1,8 @@
 <template>
 	<div class="ticker" :ticker="modelValue">
 		<div class="ticker__wallet">{{ wallet }} - USD</div>
-		<div class="ticker__value" v-if="walletValue">{{ formatPrice(walletValue) }}</div>
+		<div class="ticker__error" v-if="error">{{ error }}</div>
+		<div class="ticker__value" v-else-if="walletValue">{{ formatPrice(walletValue) }}</div>
 		<Preloader class="ticker__preloader" v-else />
 		<Button
 			class="ticker__delete"
@@ -28,6 +29,9 @@ export default {
 		walletValue() {
 			return this.modelValue.walletValue;
 		},
+		error() {
+			return this.modelValue.error;
+		}
 	},
 	data() {
 		return {
@@ -76,6 +80,20 @@ export default {
 	&__value {
 		text-align: center;
 		font-size: rem(36);
+
+		&--error {
+			color: color('red');
+		}
+
+		&:not(:last-child) {
+			margin-bottom: rem(36);
+		}
+	}
+
+	&__error {
+		color: color('red');
+		text-align: center;
+		font-size: rem(24);
 
 		&--error {
 			color: color('red');

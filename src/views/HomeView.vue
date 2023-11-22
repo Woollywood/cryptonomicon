@@ -72,7 +72,6 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 			<transition name="fade">
 				<div class="layout__info" v-if="sellectedTicker">
 					<div class="layout__info-top">
-						<h2 class="layout__info-title">{{ sellectedTicker.wallet }} - USD</h2>
 						<Button
 							class="layout__info-close"
 							type="secondary"
@@ -80,7 +79,11 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 							@click="diagramClose"></Button>
 					</div>
 					<div class="layout__diagram">
-						<ChartComponent class="layout__diagram-component" :dataValue="selectedTickerData" />
+						<ChartComponent
+							class="layout__diagram-component"
+							:wallet="sellectedTicker.wallet"
+							:labels="sellectedTickerData.labels"
+							:dataValue="sellectedTickerData.data" />
 					</div>
 				</div>
 			</transition>
@@ -98,7 +101,10 @@ export default {
 			searchQueryError: '',
 			tickers: [],
 			sellectedTicker: null,
-			selectedTickerData: [],
+			sellectedTickerData: {
+				data: [],
+				labels: [],
+			},
 
 			allTickers: [],
 
@@ -108,7 +114,7 @@ export default {
 	},
 	methods: {
 		deleteTicker(wallet) {
-			unsubscribeFromTicker(this.tickers.find((ticker) => ticker.wallet === wallet));
+			unsubscribeFromTicker(this.tickers.find((ticker) => ticker.wallet === wallet).wallet);
 			this.tickers = this.tickers.filter((ticker) => ticker.wallet !== wallet);
 
 			if (this.sellectedTicker?.wallet === wallet) {
@@ -185,23 +191,25 @@ export default {
 		},
 
 		updatedTicker(tickerName, price) {
-			this.tickers.find((ticker) => ticker.wallet === tickerName).walletValue = price;
-		},
+			const currentTicker = this.tickers.find((ticker) => ticker.wallet === tickerName);
 
-		async updateTickers() {
-			// if (!this.tickers.length) {
-			// 	return;
-			// }
-			// const exchangeData = await loadTickers(this.tickers.map((ticker) => ticker.wallet));
-			// this.tickers.forEach((ticker, index) => {
-			// 	const price = exchangeData[ticker.wallet.toUpperCase()];
-			// 	this.tickers[index].walletValue = price ?? '-';
-			// });
-			// this.tickers.find((ticker) => ticker.wallet === newTicker.wallet).walletValue =
-			// 	exchangeData.USD > 1 ? exchangeData.USD.toFixed(2) : exchangeData.USD.toPrecision(2);
-			// if (this.sellectedTicker?.wallet === newTicker.wallet) {
-			// 	this.selectedTickerData.push(data.USD);
-			// }
+			if (!currentTicker) {
+				return;
+			}
+
+			currentTicker.walletValue = price;
+
+			if (price === '-') {
+				console.log(currentTicker.wallet);
+				currentTicker.error = 'Перевод невозможен';
+			}
+
+			if (this.sellectedTicker?.wallet === currentTicker.wallet) {
+				this.sellectedTickerData.data.push(price);
+				this.sellectedTickerData.labels.push(
+					[`${new Date().getHours()} ч`, `${new Date().getMinutes()} мин`].join(' ')
+				);
+			}
 		},
 
 		async fetchAllTickers() {
@@ -279,12 +287,13 @@ export default {
 				});
 			});
 		}
-
-		setInterval(this.updateTickers, 5000);
 	},
 	watch: {
 		sellectedTicker() {
-			this.selectedTickerData = [];
+			this.sellectedTickerData = {
+				data: [],
+				labels: [],
+			};
 		},
 
 		filter() {
@@ -383,9 +392,7 @@ export default {
 
 	&__info-top {
 		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: rem(32);
+		justify-content: flex-end;
 
 		&:not(:last-child) {
 			margin-bottom: rem(24);
