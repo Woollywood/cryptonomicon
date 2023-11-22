@@ -200,7 +200,6 @@ export default {
 			currentTicker.walletValue = price;
 
 			if (price === '-') {
-				console.log(currentTicker.wallet);
 				currentTicker.error = 'Перевод невозможен';
 			}
 

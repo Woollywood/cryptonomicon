@@ -31,13 +31,22 @@ function handleError(wsMsg) {
 
 	const tickers = tickersHandlers.keys();
 	
-	const tickerError = Array.from(tickers).find((ticker) => {
+	const tickerWithError = Array.from(tickers).find((ticker) => {
 		const tickerRexExp = new RegExp(`~${ticker}~`);
 		return param.match(tickerRexExp);
 	});
 
-	const handlers = tickersHandlers.get(tickerError) ?? [];
-	handlers.forEach((fn) => fn('-'));
+	const tickerTsymUSD = param.match(/~USD/);
+	
+	if (tickerTsymUSD) {
+		console.log('cannot compare with USD. Trying to compare with BTC...');
+		subscribeToTickerOnWs(tickerWithError, 'BTC');
+	} else {
+		console.log('cannot compare with BTC. Handle error');
+		const handlers = tickersHandlers.get(tickerWithError) ?? [];
+		handlers.forEach((fn) => fn('-'));
+		unsubscribeFromTicker(tickerWithError);
+	}
 }
 
 function sendToWebSocket(message) {
@@ -50,17 +59,17 @@ function sendToWebSocket(message) {
 	}
 }
 
-function subscribeToTickerOnWs(ticker) {
+function subscribeToTickerOnWs(ticker, tsym='USD') {
 	sendToWebSocket({
 		action: 'SubAdd',
-		subs: [`5~CCCAGG~${ticker}~USD`],
+		subs: [`5~CCCAGG~${ticker}~${tsym}`],
 	});
 }
 
-function unsubscribeFromTickerOnWs(ticker) {
+function unsubscribeFromTickerOnWs(ticker, tsym='USD') {
 	sendToWebSocket({
 		action: 'SubRemove',
-		subs: [`5~CCCAGG~${ticker}~USD`],
+		subs: [`5~CCCAGG~${ticker}~${tsym}`],
 	});
 }
 
