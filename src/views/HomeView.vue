@@ -1,74 +1,14 @@
-<script setup>
-import TickerItem from '@/assets/components/TickerItem.vue';
-</script>
-
 <template>
 	<div class="layout">
 		<div class="container">
-			<div class="layout__top">
-				<form class="layout__top-form" @submit.prevent="addTickerSubmit(searchQuery)">
-					<div class="search-query-wrapper">
-						<label class="search-query">
-							<span class="search-query__label">Тикер</span>
-							<Input
-								class="search-query__input"
-								placeholder="Например DOGE"
-								type="text"
-								v-model="searchQuery"
-								@input="searchQueryError = ''" />
-
-							<span class="search-query-error" v-if="searchQueryError.length">{{
-								searchQueryError
-							}}</span>
-						</label>
-						<transition name="fade">
-							<div class="search-query-clue" v-if="searchQueryClue.length">
-								<div class="clue-item" v-for="ticker in searchQueryClue" @click="addTickerClue(ticker)">
-									{{ ticker }}
-								</div>
-							</div>
-						</transition>
-					</div>
-					<transition name="fade">
-						<Button class="layout__ticker-add" :prepend-icon="['fas', 'circle-plus']" v-if="searchQuery">
-							Добавить
-						</Button>
-					</transition>
-				</form>
-			</div>
-			<transition name="fade">
-				<div class="layout__main" v-if="tickers.length">
-					<div class="layout__main-header">
-						<div class="layout__pagination">
-							<div class="layout__pagination-buttons">
-								<Button class="layout__pagination-button" :disabled="page == 1" @click="prevPage"
-									>Назад</Button
-								>
-								<Button class="layout__pagination-button" :disabled="!hasNextPage" @click="nextPage"
-									>Вперед</Button
-								>
-							</div>
-						</div>
-						<div class="layout__filter" v-tippy="'Фильтр по названию тикера'">
-							<Input placeholder="Фильтр" type="text" v-model="filter" />
-						</div>
-					</div>
-					<hr class="layout__hr" />
-					<div class="layout__main-inner">
-						<TickerItem
-							class="layout__ticker"
-							v-for="(ticker, index) in paginatedTickers"
-							:key="ticker.name"
-							:id="ticker.id"
-							:class="{ selected: sellectedTicker === ticker }"
-							v-model="paginatedTickers[index]"
-							@click="selectTicker(ticker)"
-							@delete="deleteTicker" />
-						<h3 class="layout__main-empty" v-if="!paginatedTickers.length">Тикеры не найдены</h3>
-					</div>
-					<hr class="layout__hr" />
-				</div>
-			</transition>
+			<AddTicker class="layout__top" @add-ticker="addTicker" :tickers="tickers" />
+			<Pagination
+				:page="page"
+				:filteredTickers="filteredTickers"
+				@prev-page="prevPage"
+				@next-page="nextPage"
+				@update-filter="filter = $event" />
+			<TickersLayout :tickers="tickers" :filter="filter" v-model:sellectedTicker="sellectedTicker" :page="page" @delete="deleteTicker" />
 			<transition name="fade">
 				<div class="layout__info" v-if="sellectedTicker">
 					<div class="layout__info-top">
@@ -94,11 +34,18 @@ import TickerItem from '@/assets/components/TickerItem.vue';
 <script>
 import { subscribeToTicker, unsubscribeFromTicker } from '@/api';
 
+import AddTicker from '@/assets/components/AddTicker';
+import Pagination from '@/assets/components/Pagination';
+import TickersLayout from '@/assets/components/TickersLayout';
+
 export default {
+	components: {
+		AddTicker,
+		Pagination,
+		TickersLayout,
+	},
 	data() {
 		return {
-			searchQuery: '',
-			searchQueryError: '',
 			tickers: [],
 			sellectedTicker: null,
 			sellectedTickerData: {
@@ -106,13 +53,24 @@ export default {
 				labels: [],
 			},
 
-			allTickers: [],
-
 			page: 1,
 			filter: '',
 		};
 	},
 	methods: {
+		addTicker(tickerName) {
+			const newTicker = {
+				wallet: tickerName,
+			};
+
+			this.tickers = [...this.tickers, newTicker];
+			this.filter = '';
+
+			subscribeToTicker(newTicker.wallet, (price) => {
+				this.updatedTicker(newTicker.wallet, price);
+			});
+		},
+
 		deleteTicker(wallet) {
 			unsubscribeFromTicker(this.tickers.find((ticker) => ticker.wallet === wallet).wallet);
 			this.tickers = this.tickers.filter((ticker) => ticker.wallet !== wallet);
@@ -128,66 +86,6 @@ export default {
 
 		selectTicker(ticker) {
 			this.sellectedTicker = ticker;
-		},
-
-		addTickerThrottleWrapper(func, ms) {
-			let isThrottled = false,
-				savedArgs,
-				savedThis;
-
-			function wrapper() {
-				if (isThrottled) {
-					savedArgs = arguments;
-					savedThis = this;
-					return;
-				}
-
-				func.apply(this, arguments);
-
-				isThrottled = true;
-
-				setTimeout(function () {
-					isThrottled = false;
-					if (savedArgs) {
-						wrapper.apply(savedThis, savedArgs);
-						savedArgs = savedThis = null;
-					}
-				}, ms);
-			}
-
-			return wrapper;
-		},
-
-		addTickerSubmit(tickerName) {
-			if (!tickerName.length) {
-				return;
-			}
-
-			this.addTickerThrottle(tickerName);
-			this.searchQuery = '';
-		},
-
-		addTickerClue(tickerName) {
-			this.addTickerThrottle(tickerName);
-			this.searchQuery = '';
-		},
-
-		addTicker(tickerName) {
-			if (this.tickers.find((ticker) => ticker.wallet === tickerName)) {
-				this.searchQueryError = 'Такой тикер уже существует';
-				return;
-			}
-
-			const newTicker = {
-				wallet: tickerName,
-			};
-
-			this.tickers = [...this.tickers, newTicker];
-			this.filter = '';
-
-			subscribeToTicker(newTicker.wallet, (price) => {
-				this.updatedTicker(newTicker.wallet, price);
-			});
 		},
 
 		updatedTicker(tickerName, price) {
@@ -209,12 +107,6 @@ export default {
 					[`${new Date().getHours()} ч`, `${new Date().getMinutes()} мин`].join(' ')
 				);
 			}
-		},
-
-		async fetchAllTickers() {
-			const f = await fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true');
-			const data = await f.json();
-			this.allTickers = Object.values(data.Data).map((value) => value.Symbol);
 		},
 
 		prevPage() {
@@ -240,22 +132,6 @@ export default {
 			return this.tickers.filter((ticker) => ticker.wallet.toLowerCase().includes(this.filter.toLowerCase()));
 		},
 
-		paginatedTickers() {
-			return this.filteredTickers.slice(this.startIndex, this.endIndex);
-		},
-
-		hasNextPage() {
-			return this.filteredTickers.length > this.endIndex;
-		},
-
-		searchQueryClue() {
-			return this.searchQuery.length
-				? this.allTickers
-						.filter((ticker) => ticker.toLowerCase().includes(this.searchQuery.toLowerCase()))
-						.slice(0, 4)
-				: [];
-		},
-
 		pageStateOptions() {
 			return {
 				filter: this.filter,
@@ -272,9 +148,6 @@ export default {
 				this[key] = windowData[key];
 			}
 		});
-
-		this.addTickerThrottle = this.addTickerThrottleWrapper(this.addTicker, 1000);
-		this.fetchAllTickers();
 
 		const tickersData = localStorage.getItem('cryptonomicon-list');
 
@@ -331,56 +204,6 @@ export default {
 		}
 	}
 
-	&__top-form {
-		display: flex;
-		gap: rem(12);
-		align-items: center;
-	}
-
-	&__ticker-add {
-		@media (max-width: $mobileSmall) {
-			width: 100%;
-		}
-	}
-
-	&__main {
-	}
-
-	&__main-inner {
-		display: grid;
-		grid-template-columns: repeat(4, 1fr);
-		@include adaptiveValue('gap', 36, 56, 0, 1920, 568);
-
-		@media (max-width: $tablet) {
-			grid-template-columns: repeat(3, 1fr);
-		}
-
-		@media (max-width: $mobile) {
-			grid-template-columns: repeat(2, 1fr);
-		}
-
-		@media (max-width: $mobileSmall) {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	&__main-empty {
-		font-size: rem(22);
-	}
-
-	&__ticker {
-		&.selected {
-			outline: 1px solid color('grey', 0.8);
-		}
-	}
-
-	&__hr {
-		margin: rem(40) 0;
-		background-color: color('black', 0.8);
-		width: 100%;
-		height: 1px;
-	}
-
 	&__info {
 		height: 60vh;
 		width: 100%;
@@ -413,94 +236,6 @@ export default {
 		width: 100%;
 		height: 100%;
 	}
-
-	&__main-header {
-		display: flex;
-		gap: rem(36);
-		align-items: center;
-
-		&:not(:last-child) {
-			margin-bottom: rem(32);
-		}
-	}
-
-	&__pagination {
-		display: flex;
-		align-items: center;
-		gap: rem(56);
-	}
-
-	&__pagination-description {
-	}
-
-	&__pagination-buttons {
-		display: flex;
-		align-items: center;
-		gap: rem(16);
-	}
-
-	&__pagination-button {
-		flex: 0 0 rem(160);
-		width: rem(160);
-	}
-}
-.search-query {
-	display: flex;
-	flex-direction: column;
-
-	@media (min-width: $mobileSmall) {
-		max-width: rem(220);
-	}
-
-	@media (max-width: $mobileSmall) {
-		width: 100%;
-	}
-
-	&:not(:last-child) {
-		margin-bottom: rem(8);
-	}
-
-	&__label {
-		font-size: rem(14);
-		color: color('black');
-	}
-
-	&__input {
-	}
-}
-
-.search-query-wrapper {
-	display: flex;
-	flex-direction: column;
-}
-
-.search-query-clue {
-	display: flex;
-	justify-content: space-between;
-	gap: rem(4);
-	align-items: center;
-
-	padding-bottom: rem(8);
-	border-bottom: 1px solid color('grey', 0.8);
-}
-
-.search-query-error {
-	color: color('red');
-	font-size: rem(12);
-}
-
-.clue-item {
-	cursor: pointer;
-	flex: 1 1 auto;
-	color: color('black', 0.8);
-	font-size: rem(12);
-	padding: rem(4) rem(6);
-	background-color: color('grey', 0.8);
-	border-radius: rem(12);
-
-	display: flex;
-	justify-content: center;
-	align-items: center;
 }
 
 .fade-enter-active,
