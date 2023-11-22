@@ -14,7 +14,10 @@
 				</label>
 				<transition name="fade">
 					<div class="search-query-clue" v-if="searchQueryClue.length">
-						<TickerClue v-for="ticker in searchQueryClue" :ticker="ticker" @add-ticker-clue="addTickerClue" />
+						<TickerClue
+							v-for="ticker in searchQueryClue"
+							:ticker="ticker"
+							@add-ticker-clue="addTickerClue" />
 					</div>
 				</transition>
 			</div>
@@ -29,6 +32,8 @@
 
 <script>
 import TickerClue from '@/assets/components/TickerClue';
+
+import { fetchAllTickers } from '@/api';
 
 export default {
 	components: {
@@ -97,12 +102,6 @@ export default {
 			return wrapper;
 		},
 
-		async fetchAllTickers() {
-			const f = await fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true');
-			const data = await f.json();
-			this.allTickers = Object.values(data.Data).map((value) => value.Symbol);
-		},
-
 		addTickerClue(tickerName) {
 			this.addTickerThrottle(tickerName);
 			this.searchQuery = '';
@@ -110,7 +109,7 @@ export default {
 	},
 	created() {
 		this.addTickerThrottle = this.addTickerThrottleWrapper(this.addTicker, 1000);
-		this.fetchAllTickers();
+		fetchAllTickers().then((data) => (this.allTickers = Object.values(data.Data).map((value) => value.Symbol)));
 	},
 	computed: {
 		searchQueryClue() {

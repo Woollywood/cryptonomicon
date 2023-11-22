@@ -30,14 +30,14 @@ function handleError(wsMsg) {
 	const { MESSAGE: msg, PARAMETER: param } = JSON.parse(wsMsg);
 
 	const tickers = tickersHandlers.keys();
-	
+
 	const tickerWithError = Array.from(tickers).find((ticker) => {
 		const tickerRexExp = new RegExp(`~${ticker}~`);
 		return param.match(tickerRexExp);
 	});
 
 	const tickerTsymUSD = param.match(/~USD/);
-	
+
 	if (tickerTsymUSD) {
 		console.log('cannot compare with USD. Trying to compare with BTC...');
 		subscribeToTickerOnWs(tickerWithError, 'BTC');
@@ -59,14 +59,14 @@ function sendToWebSocket(message) {
 	}
 }
 
-function subscribeToTickerOnWs(ticker, tsym='USD') {
+function subscribeToTickerOnWs(ticker, tsym = 'USD') {
 	sendToWebSocket({
 		action: 'SubAdd',
 		subs: [`5~CCCAGG~${ticker}~${tsym}`],
 	});
 }
 
-function unsubscribeFromTickerOnWs(ticker, tsym='USD') {
+function unsubscribeFromTickerOnWs(ticker, tsym = 'USD') {
 	sendToWebSocket({
 		action: 'SubRemove',
 		subs: [`5~CCCAGG~${ticker}~${tsym}`],
@@ -82,4 +82,9 @@ export const subscribeToTicker = (ticker, cb) => {
 export const unsubscribeFromTicker = (ticker) => {
 	tickersHandlers.delete(ticker.wallet);
 	unsubscribeFromTickerOnWs(ticker);
+};
+
+export const fetchAllTickers = async () => {
+	const f = await fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true');
+	return await f.json();
 };
